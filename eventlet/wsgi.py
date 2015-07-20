@@ -541,16 +541,22 @@ class HttpProtocol(BaseHTTPServer.BaseHTTPRequestHandler):
         else:
             headers = [h.split(':', 1) for h in headers]
 
+        def _insert(key, value):
+            if key in env:
+                env[key] += ',' + value
+            else:
+                env[key] = value
+
         for k, v in headers:
+            orig_k = k
             k = k.replace('-', '_').upper()
             v = v.strip()
             if k in env:
                 continue
             envk = 'HTTP_' + k
-            if envk in env:
-                env[envk] += ',' + v
-            else:
-                env[envk] = v
+            _insert(envk, v)
+            if envk.startswith("HTTP_X_AMZ"):
+                _insert("ORIG_" + envk, orig_k)
 
         if env.get('HTTP_EXPECT') == '100-continue':
             wfile = self.wfile
@@ -754,6 +760,7 @@ def server(sock, site,
     :param capitalize_response_headers: Normalize response headers' names to Foo-Bar.
                 Default is True.
     """
+
     serv = Server(sock, sock.getsockname(),
                   site, log,
                   environ=environ,
